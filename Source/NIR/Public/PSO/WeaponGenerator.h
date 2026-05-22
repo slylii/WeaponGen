@@ -69,7 +69,8 @@ public:
 	float IdealDamage = 0.5f;
 	UPROPERTY(EditAnywhere)
 	float TargetDamageOnRange = 0.5f;
-
+	UPROPERTY(EditAnywhere)
+	float TargetTTK = 3.0f;
 	
 	UPROPERTY(EditAnywhere)
 	FVector2D DamageRange = FVector2D(5, 50);

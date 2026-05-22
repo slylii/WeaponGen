@@ -29,4 +29,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	int Accuracy = 0;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float DPS = 0;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float TTK = 0;
+
 };

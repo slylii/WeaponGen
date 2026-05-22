@@ -97,16 +97,23 @@ float AWeaponGenerator::FitnessFunction(WeaponParticle& Weapon)
 	IdealRS = FMath::Clamp(IdealRS, 0.0f, 1.0f);
 	Error = FMath::Abs(NormRS - IdealRS);
 	Fitness += 100.0f * (1.0f - Error);
-
-	float IdealMS = FMath::Pow(NormDamage, TargetDamageOnMS);
+	
+	float IdealMS = FMath::Pow(1-NormDamage, TargetDamageOnMS);
 	IdealMS = FMath::Clamp(IdealMS, 0.0f, 1.0f);
-	Error = FMath::Abs(1 - NormMS - IdealMS);
+	Error = FMath::Abs(NormMS - IdealMS);
 	Fitness += 100.0f * (1.0f - Error);
 
-	float IdealAc = FMath::Pow(NormDamage, TargetDamageOnAccuracy);
+	float IdealAc = FMath::Pow(1-NormDamage, TargetDamageOnAccuracy);
 	IdealAc = FMath::Clamp(IdealAc, 0.0f, 1.0f);
-	Error = FMath::Abs(1 - NormAc - IdealAc);
+	Error = FMath::Abs(NormAc - IdealAc);
 	Fitness += 100.0f * (1.0f - Error);
+
+	int ShotsNeeded = ceil(100 / DenormDamage);
+	float TTK = (ShotsNeeded - 1) * DenormFireRate;
+	float NormalizedTTK = TTK/TargetTTK;
+	
+	Error = FMath::Abs(1 - NormalizedTTK);
+	Fitness += 150.0f * (1.0f - Error);
 	
 	return Fitness;
 }
@@ -211,7 +218,14 @@ void AWeaponGenerator::PSOAlgorithm()
 	GeneratedWeapon->Range = GlobalBestWeapon.Unnormalization(GlobalBestWeapon.WeaponBestParticleCharacteristic.Range, RangeRange.X, RangeRange.Y);
 	GeneratedWeapon->Recoil = GlobalBestWeapon.Unnormalization(GlobalBestWeapon.WeaponBestParticleCharacteristic.Recoil, RecoilRange.X, RecoilRange.Y);
 	GeneratedWeapon->Accuracy = GlobalBestWeapon.Unnormalization(GlobalBestWeapon.WeaponBestParticleCharacteristic.Accuracy, AccuracyRange.X, AccuracyRange.Y);
-
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Blue, "%f", GlobalBestWeapon.DPSCount());
+	GeneratedWeapon->DPS = (GeneratedWeapon->Damage * GeneratedWeapon->MagazineSize) / (GeneratedWeapon->MagazineSize * GeneratedWeapon->FireRate + GeneratedWeapon->ReloadSpeed);
+	int ShotsNeeded = ceil(100 / GeneratedWeapon->Damage);
+	float TTK = (ShotsNeeded - 1) * GeneratedWeapon->FireRate;
+	GeneratedWeapon->TTK = TTK;
+	//UE_LOG(LogTemp, Warning, TEXT("%f"), GeneratedWeapon->DPS);
+	//UE_LOG(LogTemp, Warning, TEXT("%i"), GeneratedWeapon->Damage);
+	//bIsFirstGeneration = true;
 }
 
 WeaponCharacteristic AWeaponGenerator::VelocityCount(WeaponParticle& Weapon)
