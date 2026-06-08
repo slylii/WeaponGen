@@ -70,7 +70,30 @@ public:
 	UPROPERTY(EditAnywhere)
 	float TargetDamageOnRange = 0.5f;
 	UPROPERTY(EditAnywhere)
-	float TargetTTK = 3.0f;
+	float TargetTTK = 0.6f;
+
+	UPROPERTY(EditAnywhere)
+	FVector2D TTKRange = FVector2D(0.5f, 0.6f);
+
+	UPROPERTY(EditAnywhere)
+	FVector2D DPSRange = FVector2D(18.0f, 20.0f);
+
+	UPROPERTY(EditAnywhere)
+	float TTKCoef = 5.0f;
+
+	UPROPERTY(EditAnywhere)
+	float DPSCoef = 5.0f;
+
+	UPROPERTY(EditAnywhere)
+	float MaxPossibleTTK = 0.0f;
+
+	UPROPERTY(EditAnywhere)
+	float MinPossibleTTK = 0.0f;
+
+	UPROPERTY(EditAnywhere)
+	bool bIsTTK = true;
+	UPROPERTY(EditAnywhere)
+	bool bIsDPS = true;
 	
 	UPROPERTY(EditAnywhere)
 	FVector2D DamageRange = FVector2D(5, 50);

@@ -23,6 +23,8 @@ float AWeaponGenerator::NewInertiaCalculation(int Iteration)
 void AWeaponGenerator::InitSwarm()
 {
 	IdealDamage = FMath::RandRange(IdealDamageRange.X, IdealDamageRange.Y);
+	TargetTTK = FMath::RandRange(TTKRange.X, TTKRange.Y);
+	TargetDPS = FMath::RandRange(DPSRange.X, DPSRange.Y);
 	float BestStartFitness = 0.0f;
 	int BestStartID = 0;
 	for (int i = 0; i < ParticleCount; i++)
@@ -57,15 +59,9 @@ float AWeaponGenerator::FitnessFunction(WeaponParticle& Weapon)
 	float DenormRecoil = Weapon.Unnormalization(Weapon.WeaponParticleCharacteristic.Recoil, RecoilRange.X, RecoilRange.Y);
 	float DenormAccuracy = Weapon.Unnormalization(Weapon.WeaponParticleCharacteristic.Accuracy, AccuracyRange.X, AccuracyRange.Y);
 	
-	float Fitness = 0;
+	float Fitness = 100;
 	
-	FVector2D DPSRange = {(DamageRange.X*MagazineSizeRange.X)/(MagazineSizeRange.X*FireRateRange.X), (DamageRange.Y*MagazineSizeRange.Y)/(MagazineSizeRange.Y*FireRateRange.Y)};
-	float DPSCurrent = (DenormDamage*DenormMagazineSize)/(DenormMagazineSize*DenormFireRate);
-	float DPSNorm = Normalization(DPSCurrent, DPSRange.X, DPSRange.Y);
-	
-	float Error = FMath::Abs(DPSNorm - TargetDPS);
-	//Fitness = 100.0f * (1.0f - Error);
-
+	float Error = 0.0f;
 
 	float NormDamage = Weapon.WeaponParticleCharacteristic.Damage;
 	float NormRange = Weapon.WeaponParticleCharacteristic.Range;
@@ -77,6 +73,60 @@ float AWeaponGenerator::FitnessFunction(WeaponParticle& Weapon)
 
 	Error = FMath::Abs(NormDamage - IdealDamage);
 	Fitness += 100.0f * (1.0f - Error);
+
+	if (bIsTTK || bIsDPS)
+	{
+		float IdealRange = FMath::Pow(NormDamage, TargetDamageOnRange);
+		IdealRange = FMath::Clamp(IdealRange, 0.0f, 1.0f);
+		Error = FMath::Abs(NormRange - IdealRange);
+		Fitness += 100.0f * (1.0f - Error);
+
+		float IdealRec = FMath::Pow(NormDamage, TargetDamageOnRecoil);
+		IdealRec = FMath::Clamp(IdealRec, 0.0f, 1.0f);
+		Error = FMath::Abs(NormRec - IdealRec);
+		Fitness += 100.0f * (1.0f - Error);
+
+		float IdealRS = FMath::Pow(NormDamage, TargetDamageOnRS);
+		IdealRS = FMath::Clamp(IdealRS, 0.0f, 1.0f);
+		Error = FMath::Abs(NormRS - IdealRS);
+		Fitness += 100.0f * (1.0f - Error);
+	
+		float IdealMS = FMath::Pow(1-NormDamage, TargetDamageOnMS);
+		IdealMS = FMath::Clamp(IdealMS, 0.0f, 1.0f);
+		Error = FMath::Abs(NormMS - IdealMS);
+		Fitness += 100.0f * (1.0f - Error);
+
+		float IdealAc = FMath::Pow(1-NormDamage, TargetDamageOnAccuracy);
+		IdealAc = FMath::Clamp(IdealAc, 0.0f, 1.0f);
+		Error = FMath::Abs(NormAc - IdealAc);
+		Fitness += 100.0f * (1.0f - Error);
+
+		if (bIsTTK)
+		{
+			int ShotsNeeded = FMath::CeilToInt(100.0f / DenormDamage);
+			float TTK = (ShotsNeeded - 1) * DenormFireRate;
+
+			float TTKError = FMath::Abs(TTK - TargetTTK);
+			float MaxTTKError = TargetTTK;
+			float TTKFitness = 100.0f * (1.0f - FMath::Clamp(TTKError / MaxTTKError, 0.0f, 1.0f));
+
+			Fitness += TTKFitness * TTKCoef;
+			return Fitness;
+		}
+
+		if (bIsDPS)
+		{
+			float DPSCurrent = (DenormDamage*DenormMagazineSize)/(DenormMagazineSize*DenormFireRate + DenormReloadSpeed);
+
+			float DPSError = FMath::Abs(DPSCurrent - TargetDPS);
+			float MaxDPSError = TargetDPS;
+			float DPSFitness = 100.0f * (1.0f - FMath::Clamp(DPSError / MaxDPSError, 0.0f, 1.0f));
+
+			Fitness += DPSFitness * DPSCoef;
+			return Fitness;
+		}
+		
+	}
 	
 	float IdealRange = FMath::Pow(NormDamage, TargetDamageOnRange);
 	IdealRange = FMath::Clamp(IdealRange, 0.0f, 1.0f);
@@ -107,13 +157,6 @@ float AWeaponGenerator::FitnessFunction(WeaponParticle& Weapon)
 	IdealAc = FMath::Clamp(IdealAc, 0.0f, 1.0f);
 	Error = FMath::Abs(NormAc - IdealAc);
 	Fitness += 100.0f * (1.0f - Error);
-
-	int ShotsNeeded = ceil(100 / DenormDamage);
-	float TTK = (ShotsNeeded - 1) * DenormFireRate;
-	float NormalizedTTK = TTK/TargetTTK;
-	
-	Error = FMath::Abs(1 - NormalizedTTK);
-	Fitness += 150.0f * (1.0f - Error);
 	
 	return Fitness;
 }
@@ -220,11 +263,12 @@ void AWeaponGenerator::PSOAlgorithm()
 	GeneratedWeapon->Accuracy = GlobalBestWeapon.Unnormalization(GlobalBestWeapon.WeaponBestParticleCharacteristic.Accuracy, AccuracyRange.X, AccuracyRange.Y);
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Blue, "%f", GlobalBestWeapon.DPSCount());
 	GeneratedWeapon->DPS = (GeneratedWeapon->Damage * GeneratedWeapon->MagazineSize) / (GeneratedWeapon->MagazineSize * GeneratedWeapon->FireRate + GeneratedWeapon->ReloadSpeed);
-	int ShotsNeeded = ceil(100 / GeneratedWeapon->Damage);
+	int ShotsNeeded = FMath::CeilToInt(100.0f / GeneratedWeapon->Damage);
 	float TTK = (ShotsNeeded - 1) * GeneratedWeapon->FireRate;
 	GeneratedWeapon->TTK = TTK;
 	//UE_LOG(LogTemp, Warning, TEXT("%f"), GeneratedWeapon->DPS);
 	//UE_LOG(LogTemp, Warning, TEXT("%i"), GeneratedWeapon->Damage);
+	UE_LOG(LogTemp, Warning, TEXT("%f"), GeneratedWeapon->TTK);
 	//bIsFirstGeneration = true;
 }
 
@@ -242,6 +286,9 @@ WeaponCharacteristic AWeaponGenerator::VelocityCount(WeaponParticle& Weapon)
 	Velocity.Range = FMath::Clamp(Velocity.Range, -MaxVel, MaxVel);
 	Velocity.Recoil = FMath::Clamp(Velocity.Recoil, -MaxVel, MaxVel);
 	Velocity.Accuracy = FMath::Clamp(Velocity.Accuracy, -MaxVel, MaxVel);
-	return Velocity;
+	float f = VelocityPersonalBest + VelocityGlobalBest;
+	float XCoef = 2 / FMath::Abs(2 - f - FMath::Sqrt(f*f - 4*f));
+	return WeaponCharacteristic::MultiplyOnCoeff(Velocity, XCoef);
+	//return Velocity;
 }
 
